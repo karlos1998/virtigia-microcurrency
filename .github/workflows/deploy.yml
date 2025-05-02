@@ -1,0 +1,73 @@
+name: Build and Deploy Virtigia Microcurrency Application
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: '1.20'
+
+      - name: Install dependencies
+        run: go mod download
+
+      - name: Build application
+        run: go build -o microcurrency .
+
+      - name: Build Docker image
+        run: |
+          docker build -t virtigia-microcurrency:${{ github.sha }} .
+
+      - name: Save Docker image
+        run: docker save virtigia-microcurrency:${{ github.sha }} | gzip > virtigia-microcurrency.tar.gz
+
+      - name: Create tag file
+        run: echo "${{ github.sha }}" > TAG
+
+      - name: Deploy to server
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
+          source: "virtigia-microcurrency.tar.gz,./docker-compose.yml,TAG,./.env.example,./README.md"
+          target: "~/containers/virtigia-microcurrency"
+
+      - name: Prepare server environment
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
+          script: |
+            docker network create virtigia-network || true
+            docker stop virtigia_microcurrency || true
+            docker rm virtigia_microcurrency || true
+            docker image prune -a -f --filter "until=24h" || true
+
+      - name: Start application
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: 22
+          script: |
+            cd ~/containers/virtigia-microcurrency
+            export TAG=$(cat TAG)
+            echo "Deploying version $TAG"
+            docker-compose -f docker-compose.yml down || true
+            docker rmi $(docker images -q virtigia-microcurrency | grep -v $TAG) || true
+            docker load < virtigia-microcurrency.tar.gz
+            docker-compose -f docker-compose.yml up -d
