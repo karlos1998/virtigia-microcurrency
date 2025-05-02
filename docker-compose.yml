@@ -1,0 +1,27 @@
+version: '3'
+
+services:
+  microcurrency:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: microcurrency
+    restart: unless-stopped
+    ports:
+      - "8880:8880"
+    volumes:
+      - microcurrency_data:/data
+    environment:
+      - PORT=8880
+      - DATA_DIR=/data
+      - API_TOKEN=${API_TOKEN:-change_me_in_production}
+    networks:
+      - microcurrency_network
+
+volumes:
+  microcurrency_data:
+    driver: local
+
+networks:
+  microcurrency_network:
+    driver: bridge

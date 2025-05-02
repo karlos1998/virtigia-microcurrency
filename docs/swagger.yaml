@@ -1,0 +1,288 @@
+basePath: /api/v1
+definitions:
+  api.AddCurrencyRequest:
+    properties:
+      additional_data:
+        additionalProperties: true
+        type: object
+      amount:
+        type: number
+      description:
+        type: string
+    required:
+    - amount
+    - description
+    type: object
+  api.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  api.Pagination:
+    properties:
+      count:
+        type: integer
+      limit:
+        type: integer
+      offset:
+        type: integer
+    type: object
+  api.RemoveCurrencyRequest:
+    properties:
+      additional_data:
+        additionalProperties: true
+        type: object
+      amount:
+        type: number
+      description:
+        type: string
+    required:
+    - amount
+    - description
+    type: object
+  api.TransactionHistoryResponse:
+    properties:
+      pagination:
+        $ref: '#/definitions/api.Pagination'
+      transactions:
+        items:
+          $ref: '#/definitions/models.Transaction'
+        type: array
+      wallet:
+        $ref: '#/definitions/models.Wallet'
+    type: object
+  api.TransactionResponse:
+    properties:
+      transaction:
+        $ref: '#/definitions/models.Transaction'
+      wallet:
+        $ref: '#/definitions/models.Wallet'
+    type: object
+  api.WalletBalanceResponse:
+    properties:
+      balance:
+        type: number
+      wallet_id:
+        type: string
+    type: object
+  models.Transaction:
+    properties:
+      additional_data:
+        additionalProperties: true
+        type: object
+      amount:
+        type: number
+      description:
+        type: string
+      id:
+        type: string
+      timestamp:
+        type: string
+      wallet_id:
+        type: string
+    type: object
+  models.Wallet:
+    properties:
+      balance:
+        type: number
+      wallet_id:
+        type: string
+    type: object
+host: localhost:8880
+info:
+  contact:
+    email: support@virtigia.com
+    name: API Support
+    url: http://www.virtigia.com/support
+  description: A lightweight microservice for handling in-game microcurrency transactions.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: http://swagger.io/terms/
+  title: Virtigia Microcurrency API
+  version: "1.0"
+paths:
+  /wallets/{wallet_id}/add:
+    post:
+      consumes:
+      - application/json
+      description: Add currency to a wallet and record the transaction
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Wallet ID
+        in: path
+        name: wallet_id
+        required: true
+        type: string
+      - description: Add currency request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.AddCurrencyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.TransactionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Add currency to a wallet
+      tags:
+      - wallet
+  /wallets/{wallet_id}/balance:
+    get:
+      consumes:
+      - application/json
+      description: Get the balance of a wallet
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Wallet ID
+        in: path
+        name: wallet_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.WalletBalanceResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Get wallet balance
+      tags:
+      - wallet
+  /wallets/{wallet_id}/remove:
+    post:
+      consumes:
+      - application/json
+      description: Remove currency from a wallet and record the transaction
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Wallet ID
+        in: path
+        name: wallet_id
+        required: true
+        type: string
+      - description: Remove currency request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/api.RemoveCurrencyRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.TransactionResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Remove currency from a wallet
+      tags:
+      - wallet
+  /wallets/{wallet_id}/transactions:
+    get:
+      consumes:
+      - application/json
+      description: Get the transaction history for a wallet with pagination
+      parameters:
+      - description: Bearer token
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      - description: Wallet ID
+        in: path
+        name: wallet_id
+        required: true
+        type: string
+      - default: 50
+        description: Limit
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api.TransactionHistoryResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "401":
+          description: Unauthorized
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/api.ErrorResponse'
+      summary: Get transaction history
+      tags:
+      - transactions
+schemes:
+- http
+- https
+securityDefinitions:
+  BearerAuth:
+    description: Type "Bearer" followed by a space and the API token.
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
