@@ -2,9 +2,7 @@ version: '3'
 
 services:
   microcurrency:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: virtigia-microcurrency:${TAG:-latest}
     container_name: microcurrency
     restart: unless-stopped
     ports:

@@ -40,7 +40,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: 22
-          source: "virtigia-microcurrency.tar.gz,./docker-compose.yml,TAG,./.env.example,./README.md"
+          source: "virtigia-microcurrency.tar.gz,./docker-compose.yml,./docker-compose.production.yml,TAG,./.env.example,./README.md"
           target: "~/containers/virtigia-microcurrency"
 
       - name: Prepare server environment
@@ -67,7 +67,11 @@ jobs:
             cd ~/containers/virtigia-microcurrency
             export TAG=$(cat TAG)
             echo "Deploying version $TAG"
-            docker-compose -f docker-compose.yml down || true
-            docker rmi $(docker images -q virtigia-microcurrency | grep -v $TAG) || true
+            docker-compose -f docker-compose.production.yml down || true
+            # Remove old images but handle case when there are none
+            IMAGES_TO_REMOVE=$(docker images -q virtigia-microcurrency | grep -v $TAG || true)
+            if [ ! -z "$IMAGES_TO_REMOVE" ]; then
+              docker rmi $IMAGES_TO_REMOVE
+            fi
             docker load < virtigia-microcurrency.tar.gz
-            docker-compose -f docker-compose.yml up -d
+            docker-compose -f docker-compose.production.yml up -d
