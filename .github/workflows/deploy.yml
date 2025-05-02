@@ -40,7 +40,7 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: 22
-          source: "virtigia-microcurrency.tar.gz,./docker-compose.yml,./docker-compose.production.yml,TAG,./.env.example,./README.md"
+          source: "virtigia-microcurrency.tar.gz,./docker-compose.production.yml,TAG,./.env.example,./README.md"
           target: "~/containers/virtigia-microcurrency"
 
       - name: Prepare server environment
