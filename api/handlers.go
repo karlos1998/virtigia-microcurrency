@@ -6,16 +6,23 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"virtigia-microcurrency/db"
+	"virtigia-microcurrency/middleware"
 )
 
 // Handler contains the handlers for the API
 type Handler struct {
-	DB *db.DB
+	DBManager *db.DBManager
 }
 
 // NewHandler creates a new Handler
-func NewHandler(db *db.DB) *Handler {
-	return &Handler{DB: db}
+func NewHandler(dbManager *db.DBManager) *Handler {
+	return &Handler{DBManager: dbManager}
+}
+
+// getDB returns the database for the current environment
+func (h *Handler) getDB(c *gin.Context) (*db.DB, error) {
+	env := middleware.GetEnvironment(c)
+	return h.DBManager.GetDB(env)
 }
 
 // AddCurrency adds currency to a wallet
@@ -25,6 +32,7 @@ func NewHandler(db *db.DB) *Handler {
 // @Accept json
 // @Produce json
 // @Param Authorization header string true "Bearer token"
+// @Param X-ENV header string false "Environment (default: production)"
 // @Param wallet_id path string true "Wallet ID"
 // @Param request body AddCurrencyRequest true "Add currency request"
 // @Success 200 {object} TransactionResponse
@@ -50,15 +58,22 @@ func (h *Handler) AddCurrency(c *gin.Context) {
 		return
 	}
 
+	// Get database for current environment
+	database, err := h.getDB(c)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to get database: " + err.Error()})
+		return
+	}
+
 	// Add currency to wallet
-	tx, err := h.DB.AddCurrency(walletID, req.Amount, req.Description, req.AdditionalData)
+	tx, err := database.AddCurrency(walletID, req.Amount, req.Description, req.AdditionalData)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to add currency: " + err.Error()})
 		return
 	}
 
 	// Get updated wallet
-	wallet, err := h.DB.GetWallet(walletID)
+	wallet, err := database.GetWallet(walletID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to get wallet: " + err.Error()})
 		return
@@ -78,6 +93,7 @@ func (h *Handler) AddCurrency(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param Authorization header string true "Bearer token"
+// @Param X-ENV header string false "Environment (default: production)"
 // @Param wallet_id path string true "Wallet ID"
 // @Param request body RemoveCurrencyRequest true "Remove currency request"
 // @Success 200 {object} TransactionResponse
@@ -103,8 +119,15 @@ func (h *Handler) RemoveCurrency(c *gin.Context) {
 		return
 	}
 
+	// Get database for current environment
+	database, err := h.getDB(c)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to get database: " + err.Error()})
+		return
+	}
+
 	// Remove currency from wallet
-	tx, err := h.DB.RemoveCurrency(walletID, req.Amount, req.Description, req.AdditionalData)
+	tx, err := database.RemoveCurrency(walletID, req.Amount, req.Description, req.AdditionalData)
 	if err != nil {
 		if err == db.ErrInsufficientFunds {
 			c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Insufficient funds"})
@@ -115,7 +138,7 @@ func (h *Handler) RemoveCurrency(c *gin.Context) {
 	}
 
 	// Get updated wallet
-	wallet, err := h.DB.GetWallet(walletID)
+	wallet, err := database.GetWallet(walletID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to get wallet: " + err.Error()})
 		return
@@ -135,6 +158,7 @@ func (h *Handler) RemoveCurrency(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param Authorization header string true "Bearer token"
+// @Param X-ENV header string false "Environment (default: production)"
 // @Param wallet_id path string true "Wallet ID"
 // @Success 200 {object} WalletBalanceResponse
 // @Failure 400 {object} ErrorResponse
@@ -148,8 +172,15 @@ func (h *Handler) GetWalletBalance(c *gin.Context) {
 		return
 	}
 
+	// Get database for current environment
+	database, err := h.getDB(c)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to get database: " + err.Error()})
+		return
+	}
+
 	// Get wallet balance
-	balance, err := h.DB.GetWalletBalance(walletID)
+	balance, err := database.GetWalletBalance(walletID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to get wallet balance: " + err.Error()})
 		return
@@ -169,6 +200,7 @@ func (h *Handler) GetWalletBalance(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param Authorization header string true "Bearer token"
+// @Param X-ENV header string false "Environment (default: production)"
 // @Param wallet_id path string true "Wallet ID"
 // @Param limit query int false "Limit" default(50)
 // @Param offset query int false "Offset" default(0)
@@ -198,15 +230,22 @@ func (h *Handler) GetTransactionHistory(c *gin.Context) {
 		offset = 0
 	}
 
+	// Get database for current environment
+	database, err := h.getDB(c)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to get database: " + err.Error()})
+		return
+	}
+
 	// Get transactions
-	transactions, err := h.DB.GetTransactionsByWallet(walletID, limit, offset)
+	transactions, err := database.GetTransactionsByWallet(walletID, limit, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to get transactions: " + err.Error()})
 		return
 	}
 
 	// Get wallet
-	wallet, err := h.DB.GetWallet(walletID)
+	wallet, err := database.GetWallet(walletID)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to get wallet: " + err.Error()})
 		return

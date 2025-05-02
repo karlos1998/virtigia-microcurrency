@@ -4,6 +4,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sync"
 	"time"
 
 	"github.com/dgraph-io/badger/v3"
@@ -18,13 +19,78 @@ var (
 	ErrInsufficientFunds = errors.New("insufficient funds")
 )
 
-// DB represents the database
+// DB represents the database for a specific environment
 type DB struct {
-	db *badger.DB
+	db          *badger.DB
+	environment string
 }
 
-// NewDB creates a new database instance
-func NewDB(dataDir string) (*DB, error) {
+// DBManager manages database connections for different environments
+type DBManager struct {
+	baseDir     string
+	connections map[string]*DB
+	mu          sync.RWMutex
+}
+
+// NewDBManager creates a new database manager
+func NewDBManager(baseDir string) *DBManager {
+	return &DBManager{
+		baseDir:     baseDir,
+		connections: make(map[string]*DB),
+	}
+}
+
+// GetDB returns a database connection for the specified environment
+func (m *DBManager) GetDB(environment string) (*DB, error) {
+	m.mu.RLock()
+	db, exists := m.connections[environment]
+	m.mu.RUnlock()
+
+	if exists {
+		return db, nil
+	}
+
+	// Create a new connection
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Check again in case another goroutine created the connection
+	db, exists = m.connections[environment]
+	if exists {
+		return db, nil
+	}
+
+	// Create environment-specific data directory
+	dataDir := filepath.Join(m.baseDir, environment)
+
+	// Create the database
+	db, err := NewDB(dataDir, environment)
+	if err != nil {
+		return nil, err
+	}
+
+	// Store the connection
+	m.connections[environment] = db
+	return db, nil
+}
+
+// Close closes all database connections
+func (m *DBManager) Close() error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	var lastErr error
+	for _, db := range m.connections {
+		if err := db.Close(); err != nil {
+			lastErr = err
+		}
+	}
+
+	return lastErr
+}
+
+// NewDB creates a new database instance for a specific environment
+func NewDB(dataDir string, environment string) (*DB, error) {
 	// Ensure data directory exists
 	if err := os.MkdirAll(dataDir, 0755); err != nil {
 		return nil, err
@@ -38,7 +104,10 @@ func NewDB(dataDir string) (*DB, error) {
 		return nil, err
 	}
 
-	return &DB{db: db}, nil
+	return &DB{
+		db:          db,
+		environment: environment,
+	}, nil
 }
 
 // Close closes the database
@@ -162,12 +231,12 @@ func (d *DB) AddCurrency(walletID string, amount float64, description string, ad
 	}
 
 	tx := &models.Transaction{
-		ID:            generateID(),
-		WalletID:      walletID,
-		Amount:        amount,
-		Description:   description,
+		ID:             generateID(),
+		WalletID:       walletID,
+		Amount:         amount,
+		Description:    description,
 		AdditionalData: additionalData,
-		Timestamp:     time.Now(),
+		Timestamp:      time.Now(),
 	}
 
 	err := d.db.Update(func(txn *badger.Txn) error {
@@ -234,12 +303,12 @@ func (d *DB) RemoveCurrency(walletID string, amount float64, description string,
 	}
 
 	tx := &models.Transaction{
-		ID:            generateID(),
-		WalletID:      walletID,
-		Amount:        -amount, // Negative amount for removal
-		Description:   description,
+		ID:             generateID(),
+		WalletID:       walletID,
+		Amount:         -amount, // Negative amount for removal
+		Description:    description,
 		AdditionalData: additionalData,
-		Timestamp:     time.Now(),
+		Timestamp:      time.Now(),
 	}
 
 	err := d.db.Update(func(txn *badger.Txn) error {

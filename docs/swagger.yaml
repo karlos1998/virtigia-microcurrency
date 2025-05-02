@@ -113,6 +113,11 @@ paths:
         name: Authorization
         required: true
         type: string
+      - description: Environment
+        in: header
+        name: X-ENV
+        required: false
+        type: string
       - description: Wallet ID
         in: path
         name: wallet_id
@@ -157,6 +162,11 @@ paths:
         name: Authorization
         required: true
         type: string
+      - description: Environment
+        in: header
+        name: X-ENV
+        required: false
+        type: string
       - description: Wallet ID
         in: path
         name: wallet_id
@@ -194,6 +204,11 @@ paths:
         in: header
         name: Authorization
         required: true
+        type: string
+      - description: Environment
+        in: header
+        name: X-ENV
+        required: false
         type: string
       - description: Wallet ID
         in: path
@@ -238,6 +253,11 @@ paths:
         in: header
         name: Authorization
         required: true
+        type: string
+      - description: Environment
+        in: header
+        name: X-ENV
+        required: false
         type: string
       - description: Wallet ID
         in: path

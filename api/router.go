@@ -11,7 +11,7 @@ import (
 )
 
 // SetupRouter sets up the router
-func SetupRouter(database *db.DB) *gin.Engine {
+func SetupRouter(dbManager *db.DBManager) *gin.Engine {
 	router := gin.Default()
 
 	// Serve Swagger UI at root path
@@ -21,11 +21,12 @@ func SetupRouter(database *db.DB) *gin.Engine {
 	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// Create handler
-	handler := NewHandler(database)
+	handler := NewHandler(dbManager)
 
 	// API routes
 	api := router.Group("/api/v1")
 	api.Use(middleware.AuthMiddleware())
+	api.Use(middleware.EnvironmentMiddleware()) // Add environment middleware
 	{
 		// Wallet routes
 		wallets := api.Group("/wallets")
@@ -34,7 +35,7 @@ func SetupRouter(database *db.DB) *gin.Engine {
 			wallets.POST("/:wallet_id/add", handler.AddCurrency)
 			wallets.POST("/:wallet_id/remove", handler.RemoveCurrency)
 			wallets.GET("/:wallet_id/balance", handler.GetWalletBalance)
-			
+
 			// Transaction history
 			wallets.GET("/:wallet_id/transactions", handler.GetTransactionHistory)
 		}

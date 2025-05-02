@@ -49,15 +49,12 @@ func main() {
 		dataDir = filepath.Join(".", "data")
 	}
 
-	// Initialize database
-	database, err := db.NewDB(dataDir)
-	if err != nil {
-		log.Fatalf("Failed to initialize database: %v", err)
-	}
-	defer database.Close()
+	// Initialize database manager
+	dbManager := db.NewDBManager(dataDir)
+	defer dbManager.Close()
 
 	// Set up router
-	router := api.SetupRouter(database)
+	router := api.SetupRouter(dbManager)
 
 	// Get port from environment or use default
 	port := os.Getenv("PORT")
