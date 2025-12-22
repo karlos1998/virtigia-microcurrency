@@ -4,9 +4,10 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/gin-gonic/gin"
 	"virtigia-microcurrency/db"
 	"virtigia-microcurrency/middleware"
+
+	"github.com/gin-gonic/gin"
 )
 
 // Handler contains the handlers for the API
@@ -204,6 +205,8 @@ func (h *Handler) GetWalletBalance(c *gin.Context) {
 // @Param wallet_id path string true "Wallet ID"
 // @Param limit query int false "Limit" default(50)
 // @Param offset query int false "Offset" default(0)
+// @Param sort_by query string false "Sort by" default("timestamp")
+// @Param sort_order query string false "Sort order" default("DESC")
 // @Success 200 {object} TransactionHistoryResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 401 {object} ErrorResponse
@@ -230,6 +233,20 @@ func (h *Handler) GetTransactionHistory(c *gin.Context) {
 		offset = 0
 	}
 
+	// Parse sorting parameters
+	sortBy := c.DefaultQuery("sort_by", "timestamp")
+	sortOrder := c.DefaultQuery("sort_order", "DESC")
+
+	// Validate sort_by parameter
+	if sortBy != "timestamp" && sortBy != "amount" {
+		sortBy = "timestamp"
+	}
+
+	// Validate and normalize sort_order parameter
+	if sortOrder != "ASC" && sortOrder != "DESC" {
+		sortOrder = "DESC"
+	}
+
 	// Get database for current environment
 	database, err := h.getDB(c)
 	if err != nil {
@@ -238,7 +255,7 @@ func (h *Handler) GetTransactionHistory(c *gin.Context) {
 	}
 
 	// Get transactions
-	transactions, err := database.GetTransactionsByWallet(walletID, limit, offset)
+	transactions, err := database.GetTransactionsByWallet(walletID, limit, offset, sortBy, sortOrder)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: "Failed to get transactions: " + err.Error()})
 		return

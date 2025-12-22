@@ -4,11 +4,13 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"sort"
 	"sync"
 	"time"
 
-	"github.com/dgraph-io/badger/v3"
 	"virtigia-microcurrency/models"
+
+	"github.com/dgraph-io/badger/v3"
 )
 
 var (
@@ -181,28 +183,21 @@ func (d *DB) SaveTransaction(tx *models.Transaction) error {
 	})
 }
 
-// GetTransactionsByWallet retrieves transactions for a wallet with pagination
-func (d *DB) GetTransactionsByWallet(walletID string, limit, offset int) ([]*models.Transaction, error) {
+// GetTransactionsByWallet retrieves transactions for a wallet with pagination and sorting
+func (d *DB) GetTransactionsByWallet(walletID string, limit, offset int, sortBy string, sortOrder string) ([]*models.Transaction, error) {
 	prefix := []byte("wallet:" + walletID + ":transaction:")
 	var transactions []*models.Transaction
 
 	err := d.db.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
-		opts.PrefetchSize = limit
+		opts.PrefetchSize = 100 // Collect more for sorting
 		opts.Prefix = prefix
 
 		it := txn.NewIterator(opts)
 		defer it.Close()
 
-		// Skip to offset
-		i := 0
-		for it.Seek(prefix); it.Valid() && i < offset; it.Next() {
-			i++
-		}
-
-		// Collect transactions up to limit
-		i = 0
-		for ; it.Valid() && i < limit; it.Next() {
+		// Collect all transactions for the wallet
+		for it.Seek(prefix); it.Valid(); it.Next() {
 			item := it.Item()
 
 			var tx models.Transaction
@@ -215,13 +210,56 @@ func (d *DB) GetTransactionsByWallet(walletID string, limit, offset int) ([]*mod
 			}
 
 			transactions = append(transactions, &tx)
-			i++
 		}
 
 		return nil
 	})
 
-	return transactions, err
+	if err != nil {
+		return nil, err
+	}
+
+	// Sort transactions
+	d.sortTransactions(transactions, sortBy, sortOrder)
+
+	// Apply pagination
+	start := offset
+	end := offset + limit
+
+	if start > len(transactions) {
+		return []*models.Transaction{}, nil
+	}
+
+	if end > len(transactions) {
+		end = len(transactions)
+	}
+
+	return transactions[start:end], nil
+}
+
+func (d *DB) sortTransactions(transactions []*models.Transaction, sortBy string, sortOrder string) {
+	switch sortBy {
+	case "timestamp":
+		if sortOrder == "ASC" {
+			sort.Slice(transactions, func(i, j int) bool {
+				return transactions[i].Timestamp.Before(transactions[j].Timestamp)
+			})
+		} else if sortOrder == "DESC" {
+			sort.Slice(transactions, func(i, j int) bool {
+				return transactions[i].Timestamp.After(transactions[j].Timestamp)
+			})
+		}
+	case "amount":
+		if sortOrder == "ASC" {
+			sort.Slice(transactions, func(i, j int) bool {
+				return transactions[i].Amount < transactions[j].Amount
+			})
+		} else if sortOrder == "DESC" {
+			sort.Slice(transactions, func(i, j int) bool {
+				return transactions[i].Amount > transactions[j].Amount
+			})
+		}
+	}
 }
 
 // AddCurrency adds currency to a wallet and records the transaction
