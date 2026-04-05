@@ -41,7 +41,7 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: 22
           source: "virtigia-microcurrency.tar.gz,./docker-compose.production.yml,TAG,./.env.example,./README.md"
-          target: "~/containers/virtigia-microcurrency"
+          target: "/opt/apps/virtigia-microcurrency"
 
       - name: Prepare server environment
         uses: appleboy/ssh-action@master
@@ -64,7 +64,7 @@ jobs:
           key: ${{ secrets.SERVER_SSH_KEY }}
           port: 22
           script: |
-            cd ~/containers/virtigia-microcurrency
+            cd /opt/apps/virtigia-microcurrency
             export TAG=$(cat TAG)
             echo "Deploying version $TAG"
             docker-compose -f docker-compose.production.yml down || true
